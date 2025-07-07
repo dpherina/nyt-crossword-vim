@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NYT Crossword Mods
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Modifications to NYT Crossword controls
 // @author       dpherina
 // @match        https://www.nytimes.com/crosswords/game/*
@@ -23,6 +23,10 @@
 let isNavMode = true;
 let isListenMode = false;
 let listenerBuffer = "";
+const SELECTED_CELL_CLASSNAME="xwd__cell--selected";
+const YELLOW = '#ffda00';
+const GREEN = '#20f560';
+
 
 const clickReactComponent = (element) => {
     console.log('clicking tile')
@@ -36,6 +40,30 @@ const clearListener = () => {
     isListenMode = false;
     listenerBuffer = "";
 }
+
+const setCustomSheet = (css) => {
+    deleteCustomSheet();
+    const mySheet = document.createElement('style', {is: "customStyleSheet"});
+    mySheet.type = 'text/css';
+    mySheet.title = 'customSheet';
+    mySheet.appendChild(document.createTextNode(css));
+    (document.head || document.getElementsByTagName('head')[0]).appendChild(mySheet);
+
+}
+
+const deleteCustomSheet = () => {
+   const styleSheets = Array.from(document.styleSheets);
+   const customSheet = styleSheets.find(sheet => sheet.title === 'customSheet');
+   if (customSheet) customSheet.ownerNode.remove()
+}
+
+const setCursorColor = (color) => {
+    setCustomSheet(`.${SELECTED_CELL_CLASSNAME} {fill:${color} !important;}`);
+}
+
+
+setCursorColor(GREEN);
+
 
 (function() {
     'use strict';
@@ -64,6 +92,7 @@ const clearListener = () => {
 
             if (event.key == 'i') {
                 isNavMode = false;
+                setCursorColor(YELLOW);
                 console.log("normal mode off")
             }
             if (event.key === 'j') {
@@ -121,6 +150,7 @@ const clearListener = () => {
         if (!isNavMode) {
             if (event.key == 'Meta') {
                 isNavMode = true;
+                setCursorColor(GREEN);
                 console.log("normal mode on")
             }
         }
