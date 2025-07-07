@@ -18,14 +18,11 @@
 
 */
 
-
 let isNavMode = true;
 let commandBuffer = "";
-let argumentBuffer = "";
 let currentCellId = "";
 let currentDirection = "";
 let startingCellId = "";
-let listenForArgument = false;
 const SELECTED_CELL_CLASSNAME = "xwd__cell--selected";
 const YELLOW = '#ffda00';
 const GREEN = '#50f000';
@@ -34,11 +31,6 @@ const LIGHTGREEN = "#9effbc";
 const clearCommandBuffer = () => {
     console.log("clearing command buffer")
     commandBuffer = "";
-};
-
-const clearArgumentBuffer = () => {
-    console.log('clearing argument buffer');
-    argumentBuffer = "";
 };
 
 const setCustomSheet = (css) => {
@@ -217,8 +209,6 @@ const partialCommands = ['^g[0-9]*$', '^[cd][ia]?$'];
 const processNormalMode = (event) => {
     if (event.key == 'Meta') {
         clearCommandBuffer();
-        //clearArgumentBuffer();
-        //listenForArgument = false;
         setCursorColor(GREEN);
         return;
     }
