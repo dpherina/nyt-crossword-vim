@@ -271,7 +271,7 @@ setCursorColor(GREEN);
         }
 
         if (!isNavMode) {
-            if (event.key == 'Meta') {
+            if (event.key == 'Meta'|| (event.key === '[' && event.ctrlKey)) {
                 isNavMode = true;
                 setCursorColor(GREEN);
                 console.log("normal mode on")
