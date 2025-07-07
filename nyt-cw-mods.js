@@ -67,9 +67,6 @@ const setCursorColor = (color) => {
     setCustomSheet(`.${SELECTED_CELL_CLASSNAME} {fill:${color} !important;}`);
 }
 
-
-setCursorColor(GREEN);
-
 const activateInsertMode = () => {
     isNavMode = false;
     setCursorColor(YELLOW);
@@ -110,16 +107,25 @@ const jumpToHint = (number) => {
     const hintStarts = [...document.querySelectorAll('[text-anchor="start"]')];
     const target = hintStarts.find((hs) => hs.textContent === number)
     clickReactComponent(target.parentElement);
+}
 
+const deleteHighlightedCells = () => {
+    const highlightedCells = [...document.getElementsByClassName("xwd__cell--highlighted")]
+    highlightedCells.forEach((cell) => {
+        clickReactComponent(cell.parentElement);
+        simulateKeyPress('Backspace');
+    })
 }
 
 const clearWord = () => {
-    console.log("clear word tbd")
+    deleteHighlightedCells();
+    console.log("clear word tbd");
 }
 
 
 const deleteWord = () => {
-    console.log("delete word tbd")
+    deleteHighlightedCells();
+    console.log("delete word tbd");
 
 }
 
@@ -152,6 +158,8 @@ const isKeyNumeric = (key) => {
 
 }
 
+setCursorColor(GREEN);
+
 (function() {
     'use strict';
 
@@ -176,6 +184,7 @@ const isKeyNumeric = (key) => {
                 clearArgumentBuffer();
                 return;
             }
+            event.preventDefault();
 
             if (!isKeyAlphanumberic(event.key)) return;
 
