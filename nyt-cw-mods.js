@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NYT Crossword Mods
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.3
 // @description  Modifications to NYT Crossword controls
 // @author       dpherina
 // @match        https://www.nytimes.com/crosswords/game/*
@@ -24,10 +24,11 @@ let commandBuffer = "";
 let argumentBuffer = "";
 let currentCellId = "";
 let currentDirection = "";
+let startingCellId = "";
 let listenForArgument = false;
-const SELECTED_CELL_CLASSNAME="xwd__cell--selected";
+const SELECTED_CELL_CLASSNAME = "xwd__cell--selected";
 const YELLOW = '#ffda00';
-const GREEN = '#20f560';
+const GREEN = '#50f000';
 const LIGHTGREEN = "#9effbc";
 
 const clearCommandBuffer = () => {
@@ -40,10 +41,11 @@ const clearArgumentBuffer = () => {
     argumentBuffer = "";
 };
 
-
 const setCustomSheet = (css) => {
     deleteCustomSheet();
-    const mySheet = document.createElement('style', {is: "customStyleSheet"});
+    const mySheet = document.createElement('style', {
+        is: "customStyleSheet"
+    });
     mySheet.type = 'text/css';
     mySheet.title = 'customSheet';
     mySheet.appendChild(document.createTextNode(css));
@@ -67,56 +69,20 @@ const activateInsertMode = () => {
     console.log("normal mode off")
 };
 
-
 const clickReactComponent = (element) => {
-    element.dispatchEvent(new Event('click', { bubbles: true, cancelable: true }))
+    element.dispatchEvent(new Event('click', {
+        bubbles: true,
+        cancelable: true
+    }))
 };
-
-const getAria = () => {
-    const currentCellElement = document.getElementById('cell-id-0');
-    return currentCellElement.getAttribute('aria-label')
-}
-
 
 const simulateKeyPress = (keycode, options) => {
     const crosswordWrapper = document.getElementsByClassName("xwd__franklin")[0];
-    crosswordWrapper.dispatchEvent(new KeyboardEvent('keydown', {'key': keycode, 'bubbles':true, ...options}))
-};
-
-const jumpInit = () => {
-    if (argumentBuffer.length === 0) {
-        console.log("listening for argument...");
-        listenForArgument = true;
-        setCursorColor(LIGHTGREEN);
-        return;
-    }
-    const targetCell = getCellOfHint(argumentBuffer)
-    setLocation(targetCell, currentDirection)
-    listenForArgument = false;
-    setCursorColor(GREEN);
-
-};
-
-const jumpAcross = () => {
-    if (!argumentBuffer.length) return;
-    const targetCell = getCellOfHint(argumentBuffer)
-
-    setLocation(targetCell, 'Across')
-    listenForArgument = false;
-    setCursorColor(GREEN);
-
-};
-
-const jumpDown = () => {
-    if (!argumentBuffer.length) return;
-    getCellOfHint(argumentBuffer)
-    const targetCell = getCellOfHint(argumentBuffer)
-
-    setLocation(targetCell, 'Down')
-
-    listenForArgument = false;
-    setCursorColor(GREEN);
-
+    crosswordWrapper.dispatchEvent(new KeyboardEvent('keydown', {
+        'key': keycode,
+        'bubbles': true,
+        ...options
+    }))
 };
 
 const getCellOfHint = (number) => {
@@ -126,38 +92,34 @@ const getCellOfHint = (number) => {
 };
 
 const deleteHighlightedCells = () => {
-    const highlightedCells = [...document.getElementsByClassName("xwd__cell--highlighted")]//.filter(e => !e.classList.contains('xwd__cell--selected')
+    const highlightedCells = [...document.getElementsByClassName("xwd__cell--highlighted")]
     deleteCells(highlightedCells)
-
-    /**
-    // clicking the selected box gets buggy. If it's already selected, no need
-    if (!highlightedCells[0].classList.contains('xwd__cell--selected')) {
-        clickReactComponent(highlightedCells[0].parentElement)
-    }
-    simulateKeyPress('Delete')
-
-    for (let i = 0; i < highlightedCells.length - 1; i++) {
-        //clickReactComponent(cell.parentElement)
-        simulateKeyPress(currentDirection === "Across" ? "ArrowRight" : "ArrowDown")
-        simulateKeyPress('Delete')
-    }
-    */
 };
 
 const deleteCells = (cells) => {
     cells.forEach(cell => {
         setTimeout(() => {
+            // I think this was happening too fast for react to catch up. Adding a microtask helped
             setLocation(cell.id, currentDirection)
-            simulateKeyPress('Delete')})
+            simulateKeyPress('Delete')
+        })
     })
 }
 
 const changeWord = () => {
     deleteHighlightedCells();
-    setTimeout(() => setLocation(currentCellId, currentDirection), 200);
+    setTimeout(() => {
+        activateInsertMode();
+        simulateKeyPress('Home');
+    })
+
 };
 
-
+const deleteWord = () => {
+    deleteHighlightedCells();
+    // clicks and keypresses don't seem to sync nicely, so it helps to put a slight delay on the click
+    setTimeout(() => setLocation(startingCellId, currentDirection));
+}
 
 const isKeyAlphanumberic = (key) => {
     return key.length === 1 && key.match(/^([a-z]|[A-Z]|[0-9])$/i);
@@ -169,51 +131,22 @@ const isKeyNumeric = (key) => {
 };
 
 
-const updateStates = () => {
+const initState = () => {
     const currentCellElement = document.getElementsByClassName('xwd__cell--selected')[0];
     currentCellId = currentCellElement.id;
+    startingCellId = currentCellId
     currentDirection = currentCellElement.getAttribute('aria-label').match(/^\d+(A|D):.+$/)[1] === 'D' ? 'Down' : 'Across';
     console.log('Current Cell: ', currentCellId);
     console.log('Direction: ', currentDirection);
 };
 
-const processNormalMode = (event) => {
-    if (event.key == 'Meta') {
-        clearCommandBuffer();
-        clearArgumentBuffer();
-        listenForArgument = false;
-        setCursorColor(GREEN);
-        return;
-    }
-
-    // allows us to refresh that page and stuff like that
-    if (!(event.metaKey || event.ctrlKey)) {
-        event.preventDefault();
-    }
-
-    if (!isKeyAlphanumberic(event.key)) return;
-
-    if (listenForArgument && isKeyNumeric(event.key)) {
-        argumentBuffer = argumentBuffer.concat(event.key);
-        console.log("argument buffer: ", argumentBuffer);
-        return;
-    }
-
-    commandBuffer = commandBuffer.concat(event.key);
-    console.log("command buffer: ", commandBuffer);
-
-    if (commandMap[commandBuffer]) {
-        console.log('executing: ', commandBuffer);
-        commandMap[commandBuffer]();
-        clearCommandBuffer();
-        clearArgumentBuffer();
-        return;
-    }
-};
 
 const setLocation = (cellId, direction = "") => {
     console.log("navigating to cell ", cellId, "current cell", currentCellId)
-    clickReactComponent(document.getElementById(cellId).parentElement);
+    if (cellId !== currentCellId) {
+        clickReactComponent(document.getElementById(cellId).parentElement);
+        currentCellId = cellId;
+    }
 
     if (direction !== currentDirection) {
         toggleDirection();
@@ -227,23 +160,105 @@ const toggleDirection = () => {
 }
 
 
+const goCommand = (matches) => {
+    const [_, number, directionCode] = matches;
+    const targetCell = getCellOfHint(number)
 
-const commandMap = {
-    'i': activateInsertMode,
-    'j': () => simulateKeyPress('ArrowDown'),
-    'k': () => simulateKeyPress('ArrowUp'),
-    'l': () => simulateKeyPress('ArrowRight'),
-    'h': () => simulateKeyPress('ArrowLeft'),
-    'w': () => simulateKeyPress('Tab'),
-    'W': () => simulateKeyPress('Tab', {'shiftKey':true}),
-    'g': () => jumpInit(),
-    'a': () => jumpAcross(),
-    'd': () => jumpDown(),
-    'ciw': () => changeWord(),
-    'x': ()=> simulateKeyPress('Delete'),
-    'r': ()=> {simulateKeyPress('Delete'); activateInsertMode();},
+    let direction = currentDirection;
+    switch (directionCode) {
+        case 'a':
+            direction = 'Across';
+            break;
+        case 'd':
+            direction = 'Down';
+            break;
+    }
+
+    setLocation(targetCell, direction);
+}
+
+const deleteCommand = (matches) => {
+    const [_, commandCode] = matches;
+
+    if (commandCode === 'c' || commandCode === 'cc') {
+        changeWord()
+    }
+    if (commandCode === 'd' || commandCode === 'dd') {
+        deleteWord()
+    }
+
+}
+
+const regexCommandMap = {
+    '^i$': (_) => activateInsertMode(),
+    '^j$': (_) => simulateKeyPress('ArrowDown'),
+    '^k$': (_) => simulateKeyPress('ArrowUp'),
+    '^l$': (_) => simulateKeyPress('ArrowRight'),
+    '^h$': (_) => simulateKeyPress('ArrowLeft'),
+    '^w$': (_) => simulateKeyPress('Tab'),
+    '^W$': (_) => simulateKeyPress('Tab', {
+        'shiftKey': true
+    }),
+    '^x$': (_) => simulateKeyPress('Delete'),
+    '^r$': (_) => {
+        simulateKeyPress('Delete');
+        activateInsertMode();
+    },
+    '^g([0-9]+)([adg])$': (matches) => goCommand(matches),
+    '^(cc|dd)$': (matches) => deleteCommand(matches),
+    '^([cd])[ia]w$': (matches) => deleteCommand(matches),
+    // these two don't actually work like this in vim. they need to also tab
+    '^e$': (_) => simulateKeyPress('End'),
+    '^b$': (_) => simulateKeyPress('Home'),
+}
+
+const partialCommands = ['^g[0-9]*$', '^[cd][ia]?$'];
+
+const processNormalMode = (event) => {
+    if (event.key == 'Meta') {
+        clearCommandBuffer();
+        //clearArgumentBuffer();
+        //listenForArgument = false;
+        setCursorColor(GREEN);
+        return;
+    }
+
+    // allows us to refresh that page and stuff like that
+    if (!(event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+    }
+
+    if (!isKeyAlphanumberic(event.key)) return;
+
+    commandBuffer = commandBuffer.concat(event.key);
+    console.log("command buffer: ", commandBuffer);
+
+    let matchesCommand = false;
+    Object.entries(regexCommandMap).forEach(([pattern, command]) => {
+        const matches = commandBuffer.match(pattern);
+        if (matches) {
+            console.log('executing: ', commandBuffer);
+            setCursorColor(GREEN);
+            command(matches)
+            clearCommandBuffer();
+            matchesCommand = true;
+            return;
+        }
+    })
+
+    if (matchesCommand) return;
+
+    let matchesPartial = false;
+    partialCommands.forEach((pattern) => {
+        console.log(commandBuffer, pattern);
+        const matches = commandBuffer.match(pattern);
+        if (matches) {
+            setCursorColor('LIGHTGREEN')
+            matchesPartial = true;
+        }
+    })
+    if (!matchesPartial) clearCommandBuffer();
 };
-
 
 setCursorColor(GREEN);
 
@@ -253,25 +268,17 @@ setCursorColor(GREEN);
     document.onkeydown = function(event) {
         console.log("---");
         console.log("keypress: ", event.key)
-        updateStates();
+        initState();
 
-        if (event.key == 'Alt'){
+        if (event.key == 'Alt') {
             var pencil = document.getElementsByClassName("xwd__toolbar_icon--pencil")[0] ?? document.getElementsByClassName("xwd__toolbar_icon--pencil-active")[0];
             pencil.click();
         };
 
-
         if (isNavMode) {
-            /**
-            if (event.key === 'a') {
-            event.preventDefault();
-            setLocation('cell-id-144', "Down");
-            }*/
 
             processNormalMode(event);
-            //console.log('current Aria', getAria())
         }
-
 
         if (!isNavMode) {
             if (event.key == 'Meta') {
@@ -280,10 +287,5 @@ setCursorColor(GREEN);
                 console.log("normal mode on")
             }
         }
-
-
-
     };
-
-
 })();
