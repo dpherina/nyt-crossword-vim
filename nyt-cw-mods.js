@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NYT Crossword Mods
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Modifications to NYT Crossword controls
 // @author       dpherina
 // @match        https://www.nytimes.com/crosswords/game/*
@@ -14,32 +14,38 @@
 
 - figure out which direction is selected to compensate for jump direction switch offset
 - figure out how to override ESC and enter
-- indicator for insert vs normal mode
 - e/b functionality
 
 */
 
 
 let isNavMode = true;
-let isListenMode = false;
-let listenerBuffer = "";
+let commandBuffer = "";
+let argumentBuffer = "";
+let listenForArgument = false;
 const SELECTED_CELL_CLASSNAME="xwd__cell--selected";
 const YELLOW = '#ffda00';
 const GREEN = '#20f560';
 
 
 const clickReactComponent = (element) => {
-    console.log('clicking tile')
     const keys = Object.keys(element);
     const reactPropsKeyString = keys.find((k) => k.includes('__reactProps'))
     element[reactPropsKeyString].onClick();
 }
 
-const clearListener = () => {
-    console.log("clearing listener")
-    isListenMode = false;
-    listenerBuffer = "";
+const clearCommandBuffer = () => {
+    console.log("clearing command buffer")
+    commandBuffer = "";
 }
+
+const clearArgumentBuffer = () => {
+    console.log('clearing argument buffer');
+    argumentBuffer = "";
+};
+
+
+
 
 const setCustomSheet = (css) => {
     deleteCustomSheet();
@@ -52,9 +58,9 @@ const setCustomSheet = (css) => {
 }
 
 const deleteCustomSheet = () => {
-   const styleSheets = Array.from(document.styleSheets);
-   const customSheet = styleSheets.find(sheet => sheet.title === 'customSheet');
-   if (customSheet) customSheet.ownerNode.remove()
+    const styleSheets = Array.from(document.styleSheets);
+    const customSheet = styleSheets.find(sheet => sheet.title === 'customSheet');
+    if (customSheet) customSheet.ownerNode.remove()
 }
 
 const setCursorColor = (color) => {
@@ -64,87 +70,130 @@ const setCursorColor = (color) => {
 
 setCursorColor(GREEN);
 
+const activateInsertMode = () => {
+    isNavMode = false;
+    setCursorColor(YELLOW);
+    console.log("normal mode off")
+}
+
+
+const simulateKeyPress = (keycode, options) => {
+    const crosswordWrapper = document.getElementsByClassName("xwd__franklin")[0];
+    crosswordWrapper.dispatchEvent(new KeyboardEvent('keydown', {'key': keycode, 'bubbles':true, ...options}))
+};
+
+const jumpInit = () => {
+    if (argumentBuffer.length === 0) {
+        console.log("listening for argument...");
+        listenForArgument = true;
+        return;
+    }
+    jumpToHint(argumentBuffer)
+    listenForArgument = false;
+}
+
+const jumpAcross = () => {
+    if (!argumentBuffer.length) return;
+    jumpToHint(argumentBuffer)
+    simulateKeyPress('ArrowRight')
+    listenForArgument = false;
+}
+
+const jumpDown = () => {
+    if (!argumentBuffer.length) return;
+    jumpToHint(argumentBuffer)
+    simulateKeyPress('ArrowDown')
+    listenForArgument = false;
+}
+
+const jumpToHint = (number) => {
+    const hintStarts = [...document.querySelectorAll('[text-anchor="start"]')];
+    const target = hintStarts.find((hs) => hs.textContent === number)
+    clickReactComponent(target.parentElement);
+
+}
+
+const clearWord = () => {
+    console.log("clear word tbd")
+}
+
+
+const deleteWord = () => {
+    console.log("delete word tbd")
+
+}
+
+
+const commandMap = {
+    'i': activateInsertMode,
+    'j': () => simulateKeyPress('ArrowDown'),
+    'k': () => simulateKeyPress('ArrowUp'),
+    'l': () => simulateKeyPress('ArrowRight'),
+    'h': () => simulateKeyPress('ArrowLeft'),
+    'w': () => simulateKeyPress('Tab'),
+    'W': () => simulateKeyPress('Tab', {'shiftKey':true}),
+    'g': () => jumpInit(),
+    'a': () => jumpAcross(),
+    'd': () => jumpDown(),
+    'ciw': () => clearWord(),
+    'diw': () => deleteWord(),
+    'caw': () => clearWord(),
+    'daw': () => deleteWord(),
+    'x': ()=> simulateKeyPress('Backspace'),
+    'r': ()=> {simulateKeyPress('Backspace'); activateInsertMode();},
+};
+
+const isKeyAlphanumberic = (key) => {
+    return key.length === 1 && key.match(/^([a-z]|[A-Z]|[0-9])$/i);
+}
+
+const isKeyNumeric = (key) => {
+    return key.length === 1 && key.match(/^([0-9])$/i);
+
+}
 
 (function() {
     'use strict';
 
-
     document.onkeydown = function(event) {
-        console.log(event.key)
-        console.log('buffer', listenerBuffer)
-        console.log('isListenMode', isListenMode)
+        console.log("---");
+        console.log("keypress: ", event.key)
 
         const crosswordWrapper = document.getElementsByClassName("xwd__franklin")[0];
         const simulateKeyPress = (keycode, options) => crosswordWrapper.dispatchEvent(new KeyboardEvent('keydown', {'key': keycode, 'bubbles':true, ...options}));
 
-        const hintStarts = [...document.querySelectorAll('[text-anchor="start"]')];
-
-        //[...document.querySelectorAll('[text-anchor="start"]')][1].parentElement.__reactProps$w8nwkxia2r.onClick();
 
         if (event.key == 'Alt'){
             var pencil = document.getElementsByClassName("xwd__toolbar_icon--pencil")[0] ?? document.getElementsByClassName("xwd__toolbar_icon--pencil-active")[0];
             pencil.click();
         };
+
+
         if (isNavMode) {
-            if (isListenMode && '0123456789'.includes(event.key)) {
-                listenerBuffer = listenerBuffer.concat(event.key);
+
+            if (event.key == 'Meta') {
+                clearCommandBuffer();
+                clearArgumentBuffer();
+                return;
             }
 
-            if (event.key == 'i') {
-                isNavMode = false;
-                setCursorColor(YELLOW);
-                console.log("normal mode off")
-            }
-            if (event.key === 'j') {
-                console.log('j pressed');
-                simulateKeyPress('ArrowDown');
-            }
-            if (event.key === 'k') {
-                simulateKeyPress('ArrowUp');
-            }
-            if (event.key === 'l') {
-                simulateKeyPress('ArrowRight');
-            }
-            if (event.key === 'h') {
-                simulateKeyPress('ArrowLeft');
-            }
-            if (event.key === 'w') {
-                simulateKeyPress('Tab');
-            }
-            if (event.key === 'W') {
-                simulateKeyPress('Tab', {'shiftKey':true});
-            }
-            if (event.key === 'g') {
-                if (listenerBuffer.length === 0) {
-                    console.log("nothing in buffer, entering listen mode");
-                    isListenMode = true;
-                    return;
-                }
-                console.log("buffer has value ", listenerBuffer);
-                console.log('attempting jump');
-                const target = hintStarts.find((hs) => hs.textContent === listenerBuffer)
-                clickReactComponent(target.parentElement);
-                clearListener();
+            if (!isKeyAlphanumberic(event.key)) return;
 
-            }
-            if (event.key === 'a' && listenerBuffer.length > 0) {
-                console.log('attempting jump');
-
-                const target = hintStarts.find((hs) => hs.textContent === listenerBuffer)
-                clickReactComponent(target.parentElement);
-                simulateKeyPress('ArrowRight');
-
-                clearListener();
+            if (listenForArgument && isKeyNumeric(event.key)) {
+                argumentBuffer = argumentBuffer.concat(event.key);
+                console.log("argument buffer: ", argumentBuffer);
+                return;
             }
 
-            if (event.key === 'd' && listenerBuffer.length > 0) {
-                console.log('attempting jump');
+            commandBuffer = commandBuffer.concat(event.key);
+            console.log("command buffer: ", commandBuffer);
 
-                const target = hintStarts.find((hs) => hs.textContent === listenerBuffer)
-                clickReactComponent(target.parentElement);
-                simulateKeyPress('ArrowDown');
-
-                clearListener();
+            if (commandMap[commandBuffer]) {
+                console.log('executing: ', commandBuffer);
+                commandMap[commandBuffer]();
+                clearCommandBuffer();
+                clearArgumentBuffer();
+                return;
             }
         }
         if (!isNavMode) {
@@ -156,15 +205,5 @@ setCursorColor(GREEN);
         }
     };
 
-    document.addEventListener("keypress", function (evt) {
-        if (evt.which < 48 || evt.which > 57)
-        {
-            if (isNavMode) {
-                evt.preventDefault();
-            } else {
-                return true;
-            }
-        }
-    });
 
 })();
