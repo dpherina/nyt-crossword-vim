@@ -23,7 +23,7 @@ let isNavMode = true;
 let commandBuffer = "";
 let argumentBuffer = "";
 let currentCellId = "";
-let currentDirection = "Across";
+let currentDirection = "";
 let listenForArgument = false;
 const SELECTED_CELL_CLASSNAME="xwd__cell--selected";
 const YELLOW = '#ffda00';
@@ -214,7 +214,7 @@ const processNormalMode = (event) => {
     }
 };
 
-const setLocation = (cellId, direction) => {
+const setLocation = (cellId, direction = "") => {
     if (cellId !== currentCellId) {
      clickReactComponent(document.getElementById(cellId).parentElement);
     }
