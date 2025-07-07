@@ -30,13 +30,6 @@ const YELLOW = '#ffda00';
 const GREEN = '#20f560';
 const LIGHTGREEN = "#9effbc";
 
-
-const clickReactComponent = (element) => {
-    const keys = Object.keys(element);
-    const reactPropsKeyString = keys.find((k) => k.includes('__reactProps'))
-    element[reactPropsKeyString].onClick();
-};
-
 const clearCommandBuffer = () => {
     console.log("clearing command buffer")
     commandBuffer = "";
@@ -75,6 +68,16 @@ const activateInsertMode = () => {
 };
 
 
+const clickReactComponent = (element) => {
+    element.dispatchEvent(new Event('click', { bubbles: true, cancelable: true }))
+};
+
+const getAria = () => {
+    const currentCellElement = document.getElementById('cell-id-0');
+    return currentCellElement.getAttribute('aria-label')
+}
+
+
 const simulateKeyPress = (keycode, options) => {
     const crosswordWrapper = document.getElementsByClassName("xwd__franklin")[0];
     crosswordWrapper.dispatchEvent(new KeyboardEvent('keydown', {'key': keycode, 'bubbles':true, ...options}))
@@ -87,7 +90,8 @@ const jumpInit = () => {
         setCursorColor(LIGHTGREEN);
         return;
     }
-    jumpToHint(argumentBuffer)
+    const targetCell = getCellOfHint(argumentBuffer)
+    setLocation(targetCell, currentDirection)
     listenForArgument = false;
     setCursorColor(GREEN);
 
@@ -95,10 +99,9 @@ const jumpInit = () => {
 
 const jumpAcross = () => {
     if (!argumentBuffer.length) return;
-    jumpToHint(argumentBuffer)
-    if (currentDirection !== 'Across') {
-        simulateKeyPress('ArrowRight')
-    }
+    const targetCell = getCellOfHint(argumentBuffer)
+
+    setLocation(targetCell, 'Across')
     listenForArgument = false;
     setCursorColor(GREEN);
 
@@ -106,61 +109,55 @@ const jumpAcross = () => {
 
 const jumpDown = () => {
     if (!argumentBuffer.length) return;
-    jumpToHint(argumentBuffer)
-    if (currentDirection !== 'Down') {
-        simulateKeyPress('ArrowDown')
-    }
+    getCellOfHint(argumentBuffer)
+    const targetCell = getCellOfHint(argumentBuffer)
+
+    setLocation(targetCell, 'Down')
+
     listenForArgument = false;
     setCursorColor(GREEN);
 
 };
 
-const jumpToHint = (number) => {
+const getCellOfHint = (number) => {
     const hintStarts = [...document.querySelectorAll('[text-anchor="start"]')];
     const target = hintStarts.find((hs) => hs.textContent === number)
-    clickReactComponent(target.parentElement);
+    return target.parentElement.firstElementChild.id;
 };
 
 const deleteHighlightedCells = () => {
-    const highlightedCells = [...document.getElementsByClassName("xwd__cell--highlighted")]
-    highlightedCells.forEach((cell) => {
-        clickReactComponent(cell.parentElement);
-        simulateKeyPress('Delete');
-    })
+    const highlightedCells = [...document.getElementsByClassName("xwd__cell--highlighted")]//.filter(e => !e.classList.contains('xwd__cell--selected')
+    deleteCells(highlightedCells)
+
+    /**
+    // clicking the selected box gets buggy. If it's already selected, no need
+    if (!highlightedCells[0].classList.contains('xwd__cell--selected')) {
+        clickReactComponent(highlightedCells[0].parentElement)
+    }
+    simulateKeyPress('Delete')
+
+    for (let i = 0; i < highlightedCells.length - 1; i++) {
+        //clickReactComponent(cell.parentElement)
+        simulateKeyPress(currentDirection === "Across" ? "ArrowRight" : "ArrowDown")
+        simulateKeyPress('Delete')
+    }
+    */
 };
+
+const deleteCells = (cells) => {
+    cells.forEach(cell => {
+        setTimeout(() => {
+            setLocation(cell.id, currentDirection)
+            simulateKeyPress('Delete')})
+    })
+}
 
 const changeWord = () => {
     deleteHighlightedCells();
-    setLocation(currentCellId, currentDirection);
-    console.log("change word tbd");
+    setTimeout(() => setLocation(currentCellId, currentDirection), 200);
 };
 
 
-const deleteWord = () => {
-    deleteHighlightedCells();
-    setLocation(currentCellId, currentDirection);
-    console.log("delete word tbd");
-};
-
-
-const commandMap = {
-    'i': activateInsertMode,
-    'j': () => simulateKeyPress('ArrowDown'),
-    'k': () => simulateKeyPress('ArrowUp'),
-    'l': () => simulateKeyPress('ArrowRight'),
-    'h': () => simulateKeyPress('ArrowLeft'),
-    'w': () => simulateKeyPress('Tab'),
-    'W': () => simulateKeyPress('Tab', {'shiftKey':true}),
-    'g': () => jumpInit(),
-    'a': () => jumpAcross(),
-    'd': () => jumpDown(),
-    'ciw': () => changeWord(),
-    'diw': () => deleteWord(),
-    'caw': () => changeWord(),
-    'daw': () => deleteWord(),
-    'x': ()=> simulateKeyPress('Delete'),
-    'r': ()=> {simulateKeyPress('Delete'); activateInsertMode();},
-};
 
 const isKeyAlphanumberic = (key) => {
     return key.length === 1 && key.match(/^([a-z]|[A-Z]|[0-9])$/i);
@@ -215,20 +212,37 @@ const processNormalMode = (event) => {
 };
 
 const setLocation = (cellId, direction = "") => {
-    if (cellId !== currentCellId) {
-     clickReactComponent(document.getElementById(cellId).parentElement);
-    }
+    console.log("navigating to cell ", cellId, "current cell", currentCellId)
+    clickReactComponent(document.getElementById(cellId).parentElement);
 
-    if (direction === "Across") {
-        if (currentDirection === "Across") return;
-        simulateKeyPress(" ");
-    }
-    if (direction === "Down") {
-        if (currentDirection === "Down") return;
-        simulateKeyPress(" ");
+    if (direction !== currentDirection) {
+        toggleDirection();
     }
 };
 
+const toggleDirection = () => {
+    simulateKeyPress(" ");
+    currentDirection = currentDirection === "Down" ? "Across" : "Down";
+    console.log("toggled direction to", currentDirection)
+}
+
+
+
+const commandMap = {
+    'i': activateInsertMode,
+    'j': () => simulateKeyPress('ArrowDown'),
+    'k': () => simulateKeyPress('ArrowUp'),
+    'l': () => simulateKeyPress('ArrowRight'),
+    'h': () => simulateKeyPress('ArrowLeft'),
+    'w': () => simulateKeyPress('Tab'),
+    'W': () => simulateKeyPress('Tab', {'shiftKey':true}),
+    'g': () => jumpInit(),
+    'a': () => jumpAcross(),
+    'd': () => jumpDown(),
+    'ciw': () => changeWord(),
+    'x': ()=> simulateKeyPress('Delete'),
+    'r': ()=> {simulateKeyPress('Delete'); activateInsertMode();},
+};
 
 
 setCursorColor(GREEN);
@@ -255,6 +269,7 @@ setCursorColor(GREEN);
             }*/
 
             processNormalMode(event);
+            //console.log('current Aria', getAria())
         }
 
 
