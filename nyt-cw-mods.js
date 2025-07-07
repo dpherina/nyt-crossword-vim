@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NYT Crossword Mods
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.3
 // @description  Modifications to NYT Crossword controls
 // @author       dpherina
 // @match        https://www.nytimes.com/crosswords/game/*
@@ -26,6 +26,7 @@ let listenForArgument = false;
 const SELECTED_CELL_CLASSNAME="xwd__cell--selected";
 const YELLOW = '#ffda00';
 const GREEN = '#20f560';
+const LIGHTGREEN = "#9effbc";
 
 
 const clickReactComponent = (element) => {
@@ -83,10 +84,13 @@ const jumpInit = () => {
     if (argumentBuffer.length === 0) {
         console.log("listening for argument...");
         listenForArgument = true;
+        setCursorColor(LIGHTGREEN);
         return;
     }
     jumpToHint(argumentBuffer)
     listenForArgument = false;
+    setCursorColor(GREEN);
+
 }
 
 const jumpAcross = () => {
@@ -94,6 +98,8 @@ const jumpAcross = () => {
     jumpToHint(argumentBuffer)
     simulateKeyPress('ArrowRight')
     listenForArgument = false;
+    setCursorColor(GREEN);
+
 }
 
 const jumpDown = () => {
@@ -101,6 +107,8 @@ const jumpDown = () => {
     jumpToHint(argumentBuffer)
     simulateKeyPress('ArrowDown')
     listenForArgument = false;
+    setCursorColor(GREEN);
+
 }
 
 const jumpToHint = (number) => {
@@ -117,9 +125,9 @@ const deleteHighlightedCells = () => {
     })
 }
 
-const clearWord = () => {
+const changeWord = () => {
     deleteHighlightedCells();
-    console.log("clear word tbd");
+    console.log("change word tbd");
 }
 
 
@@ -141,9 +149,9 @@ const commandMap = {
     'g': () => jumpInit(),
     'a': () => jumpAcross(),
     'd': () => jumpDown(),
-    'ciw': () => clearWord(),
+    'ciw': () => changeWord(),
     'diw': () => deleteWord(),
-    'caw': () => clearWord(),
+    'caw': () => changeWord(),
     'daw': () => deleteWord(),
     'x': ()=> simulateKeyPress('Backspace'),
     'r': ()=> {simulateKeyPress('Backspace'); activateInsertMode();},
@@ -182,6 +190,8 @@ setCursorColor(GREEN);
             if (event.key == 'Meta') {
                 clearCommandBuffer();
                 clearArgumentBuffer();
+                listenForArgument = false;
+                setCursorColor(GREEN);
                 return;
             }
             event.preventDefault();
