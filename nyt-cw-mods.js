@@ -83,9 +83,10 @@ const getCellOfHint = (number) => {
     return target.parentElement.firstElementChild.id;
 };
 
+const getHighlightedCells = () => [...document.getElementsByClassName("xwd__cell--highlighted")];
+
 const deleteHighlightedCells = () => {
-    const highlightedCells = [...document.getElementsByClassName("xwd__cell--highlighted")]
-    deleteCells(highlightedCells)
+    deleteCells(getHighlightedCells())
 };
 
 const deleteCells = (cells) => {
@@ -119,7 +120,6 @@ const isKeyAlphanumberic = (key) => {
 
 const isKeyNumeric = (key) => {
     return key.length === 1 && key.match(/^([0-9])$/i);
-
 };
 
 
@@ -140,7 +140,7 @@ const setLocation = (cellId, direction = "") => {
         currentCellId = cellId;
     }
 
-    if (direction !== currentDirection) {
+    if (direction !== "" && direction !== currentDirection) {
         toggleDirection();
     }
 };
@@ -181,6 +181,13 @@ const deleteCommand = (matches) => {
 
 }
 
+const appendCommand = () => {
+    const hightlightedCells = getHighlightedCells();
+    const blanks = hightlightedCells.filter((cell) => cell.parentElement.lastChild.textContent === "");
+    setLocation(blanks[0].id)
+    activateInsertMode();
+}
+
 const regexCommandMap = {
     '^i$': (_) => activateInsertMode(),
     '^j$': (_) => simulateKeyPress('ArrowDown'),
@@ -196,6 +203,7 @@ const regexCommandMap = {
         simulateKeyPress('Delete');
         activateInsertMode();
     },
+    '^A$': (_) => appendCommand(),
     '^g([0-9]+)([adg])$': (matches) => goCommand(matches),
     '^(cc|dd)$': (matches) => deleteCommand(matches),
     '^([cd])[ia]w$': (matches) => deleteCommand(matches),
@@ -207,14 +215,14 @@ const regexCommandMap = {
 const partialCommands = ['^g[0-9]*$', '^[cd][ia]?$'];
 
 const processNormalMode = (event) => {
-    if (event.key == 'Meta') {
+    if (event.key === 'Meta' || (event.key === '[' && event.ctrlKey) || event.key === '`') {
         clearCommandBuffer();
         setCursorColor(GREEN);
         return;
     }
 
-    // allows us to refresh that page and stuff like that
-    if (!(event.metaKey || event.ctrlKey)) {
+    // allows us to refresh the page
+    if (!(event.metaKey)) {
         event.preventDefault();
     }
 
@@ -257,10 +265,13 @@ setCursorColor(GREEN);
 
     document.onkeydown = function(event) {
         console.log("---");
-        console.log("keypress: ", event.key)
+        console.log("keypress: ", event.key, event.ctrlKey)
         initState();
+        if (event.key === '`') {
+            event.preventDefault();
+        }
 
-        if (event.key == 'Alt') {
+        if (event.key === 'Alt') {
             var pencil = document.getElementsByClassName("xwd__toolbar_icon--pencil")[0] ?? document.getElementsByClassName("xwd__toolbar_icon--pencil-active")[0];
             pencil.click();
         };
@@ -271,7 +282,7 @@ setCursorColor(GREEN);
         }
 
         if (!isNavMode) {
-            if (event.key == 'Meta'|| (event.key === '[' && event.ctrlKey)) {
+            if (event.key === 'Meta' || (event.key === '[' && event.ctrlKey) || event.key === '`') {
                 isNavMode = true;
                 setCursorColor(GREEN);
                 console.log("normal mode on")
