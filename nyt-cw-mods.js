@@ -206,7 +206,7 @@ const regexCommandMap = {
         activateInsertMode();
     },
     '^A$': (_) => appendCommand(),
-    '^g([0-9]+)([adg])$': (matches) => goCommand(matches),
+    '^([0-9]+)([adgj])$': (matches) => goCommand(matches),
     '^(cc|dd)$': (matches) => deleteCommand(matches),
     '^([cd])[ia]w$': (matches) => deleteCommand(matches),
     // these two don't actually work like this in vim. they need to also tab
@@ -214,7 +214,7 @@ const regexCommandMap = {
     '^b$': (_) => simulateKeyPress('Home'),
 }
 
-const partialCommands = ['^g[0-9]*$', '^[cd][ia]?$'];
+const partialCommands = ['^[0-9]*$', '^[cd][ia]?$'];
 
 const processNormalMode = (event) => {
     if (event.key === 'Meta' || (event.key === '[' && event.ctrlKey) || event.key === '`') {
@@ -257,7 +257,10 @@ const processNormalMode = (event) => {
             matchesPartial = true;
         }
     })
-    if (!matchesPartial) clearCommandBuffer();
+    if (!matchesPartial) {
+        setCursorColor(GREEN);
+        clearCommandBuffer();
+    }
 };
 
 setCursorColor(GREEN);
