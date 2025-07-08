@@ -23,6 +23,7 @@ let commandBuffer = "";
 let currentCellId = "";
 let currentDirection = "";
 let startingCellId = "";
+let isReplacing = false;
 const SELECTED_CELL_CLASSNAME = "xwd__cell--selected";
 const YELLOW = '#ffda00';
 const GREEN = '#50f000';
@@ -201,6 +202,7 @@ const regexCommandMap = {
     '^x$': (_) => simulateKeyPress('Delete'),
     '^r$': (_) => {
         simulateKeyPress('Delete');
+        isReplacing = true;
         activateInsertMode();
     },
     '^A$': (_) => appendCommand(),
@@ -268,7 +270,7 @@ setCursorColor(GREEN);
         console.log("keypress: ", event.key, event.ctrlKey)
         initState();
         if (event.key === '`') {
-            event.preventDefault();
+        event.preventDefault();
         }
 
         if (event.key === 'Alt') {
@@ -279,11 +281,13 @@ setCursorColor(GREEN);
         if (isNavMode) {
 
             processNormalMode(event);
+            return;
         }
 
         if (!isNavMode) {
-            if (event.key === 'Meta' || (event.key === '[' && event.ctrlKey) || event.key === '`') {
+            if (event.key === 'Meta' || (event.key === '[' && event.ctrlKey) || event.key === '`' || isReplacing) {
                 isNavMode = true;
+                isReplacing = false;
                 setCursorColor(GREEN);
                 console.log("normal mode on")
             }
