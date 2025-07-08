@@ -185,8 +185,10 @@ const deleteCommand = (matches) => {
 const appendCommand = () => {
     const hightlightedCells = getHighlightedCells();
     const blanks = hightlightedCells.filter((cell) => cell.parentElement.lastChild.textContent === "");
-    setLocation(blanks[0].id)
-    activateInsertMode();
+    if (blanks.length) {
+      setLocation(blanks[0].id)
+      activateInsertMode();
+    }
 }
 
 const regexCommandMap = {
